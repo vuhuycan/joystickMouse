@@ -1,5 +1,5 @@
 # joystickMouse
-This project tries to create a Joystick-as-Mouse device.
+This project tries to create a Joystick-as-Mouse BLE HID device.
 
 #
 The hardware includes 1 Joystick + ESP32 module.
