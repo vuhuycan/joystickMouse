@@ -8,6 +8,9 @@
 int axiscenterH ;
 int axiscenterV ;
 
+//two libraries are used:
+// + NimBLE-Arduino
+// + https://github.com/wakwak-koba/ESP32-NimBLE-Mouse
 BleMouse bleMouse;
 
 void setup() {
