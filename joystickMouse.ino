@@ -1,17 +1,30 @@
 #include <BleMouse.h>
+#include "lut.h"
 
 // LEFT-JOYSTICK
 #define LH 34
 #define LV 35
 #define LS 15
 
+int axiscenterH ;
+int axiscenterV ;
 
 BleMouse bleMouse;
 
 void setup() {
   Serial.begin(115200);
-  analogReadResolution(10);
+  analogReadResolution(4);
   pinMode(LS,INPUT_PULLUP);
+
+  int sumH=0, sumV=0;
+  for (int i=0; i< 10000; i++) {
+    sumH += analogRead(LH);
+    sumV += analogRead(LV);
+  }
+  axiscenterH = sumH / 10000;
+  axiscenterV = sumV / 10000;
+  Serial.printf("center: %d\t%d\n",axiscenterH,axiscenterV);
+
   Serial.println("Starting BLE work!");
   bleMouse.begin();
 }
@@ -22,21 +35,21 @@ void loop() {
 
     int value1 = analogRead(LH);
     int value2 = analogRead(LV);
-    //Serial.printf("%05d\t%05d\t",value1,value2);
+    Serial.printf("%05d\t%05d\t\t",value1,value2);
 
 
-    //int valueH = avg_filter1(value1);
-    //int valueV = avg_filter2(value2);
-    int valueH = value1;
-    int valueV = value2;
+    int valueH = avg_filter1(value1);
+    int valueV = avg_filter2(value2);
+    //int valueH = value1;// & 0xf00;
+    //int valueV = value2;// & 0xf00;
+    //Serial.printf("%05d\t%05d\t\t",valueH,valueV);
 
 
-    const int axiscenterH = 497;
-    const int axiscenterV = 487;
+
     const int axisminH = 0;
     const int axisminV = 0;
-    const int axismaxH = 1023;
-    const int axismaxV = 1023;
+    const int axismaxH = 4095;
+    const int axismaxV = 4095;
     int correctedvalueH, correctedvalueV;
 
 /*
@@ -57,8 +70,8 @@ void loop() {
     else valueV = value2;
     Serial.printf("dedzon: %05d\t%05d\t",valueH,valueV);
 */
-
-    const int max_mickey = 12;
+/*
+    const int max_mickey = 4;
     if (valueH < axiscenterH) correctedvalueH = map(valueH,axisminH,axiscenterH,max_mickey,0);
     else correctedvalueH = map(valueH,axiscenterH,axismaxH,0,-max_mickey);
 
@@ -66,37 +79,49 @@ void loop() {
     else correctedvalueV = map(valueV,axiscenterV,axismaxV,0,max_mickey);
     
     //Serial.printf("crect: %05d\t%05d\t",correctedvalueH,correctedvalueV);
-    
+*/  
     
     //if (abs(correctedvalueV) > 1 && abs(correctedvalueH) > 1)
     //bleMouse.move(correctedvalueH,correctedvalueV);
 
 
-    int x = avg_filter1(correctedvalueH);
-    int y = avg_filter2(correctedvalueV);
+    //int x = avg_filter1(correctedvalueH);
+    //int y = avg_filter2(correctedvalueV);
     //int x = correctedvalueH;
     //int y = correctedvalueV;
-    Serial.printf("xy: %05d\t%05d\t",x,y);
+    int x = - (valueH - axiscenterH);
+    int y =    valueV - axiscenterV ;
+    Serial.printf("%05d\t%05d\t",x,y);
     
 
     const int I = 4;
     
     int abs_x = abs(x); int abs_y = abs(y);
     int z = abs_x + abs_y - ((2*min(abs_x,abs_y))/3); //approximate of sqrt(x^2 + y^2)
-    //if (z<3) z = 0; 
+    //if (abs_x<2 || abs_y<2) z = 0;
+    //if (z<3) z = 0;
     static int z0 = z;
     //Serial.printf("z: %05d\t%05d\t",z0,z);
     int zi = ( (z - z0)*I ) + z;
     int zi2 = abs(zi);
-    int Z = zi2;                        //Z = f(zi2); // f is transfer function, implement by a lookup table
-    int ratio = (z==0)? 0 : Z/z;        //ratio = Z/zi2;
+
+    #ifdef TRANSFER_FUNC
+    int Z = transfer_func[zi2];              //=zi2; // f is transfer function, implement by a lookup table
+    int ratio = zi==0? 0 : Z/zi2;            //=z==0? 0 : Z/z;
     int uX = x*ratio; int uY = y*ratio;
-    int X = uX; //zi<0? -uX : uX;             //(zi==0)? 0 : (zi>0)? : x*ratio : - x*ratio;
-    int Y = uY; //zi<0? -uY : uY;             //(zi==0)? 0 : ...                   y*ratio;
-    z0 = z;
+    int X = (zi==0)? 0 : (zi>0)? uX : -uX;   //=uX;
+    int Y = (zi==0)? 0 : (zi>0)? uY : -uY;   //=uY;
+    #else
+    int Z = zi2;
+    int ratio = z==0? 0 : Z/zi2;
+    int uX = x*ratio; int uY = y*ratio;
+    int X = uX; int Y = uY;
+    #endif
+    z0 = z; //save z to use at the next iter
 
     
-    //Serial.printf("%05d\t%05d\t",X,Y);
+    Serial.printf("%05d\t%05d\t",X,Y);
+    //if (X!=0 || Y!=0) 
     bleMouse.move(X,Y);
     //delay(1);
     Serial.println("");
@@ -125,7 +150,7 @@ void loop() {
 
 
 
-#define WINDOW_SIZE 16
+#define WINDOW_SIZE 4
 
 int avg_filter1 (int input) {
 
@@ -164,3 +189,6 @@ static int AVERAGED = 0;
 
   return(AVERAGED);
 }
+
+
+
