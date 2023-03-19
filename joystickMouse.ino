@@ -106,7 +106,7 @@ void loop() {
     int Y = (zi==0)? 0 : (zi>0)? uY : -uY; 
     #else 
     int Z = zi2;
-    int ratio = z==0? 0 : Z/zi2;
+    int ratio = z==0? 0 : Z/z;
     int uX = x*ratio; int uY = y*ratio;
     int X = uX; int Y = uY;
     #endif
